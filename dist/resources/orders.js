@@ -1,27 +1,16 @@
 'use strict';
 
-var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
-
-function _objectWithoutProperties(obj, keys) { var target = {}; for (var i in obj) { if (keys.indexOf(i) >= 0) continue; if (!Object.prototype.hasOwnProperty.call(obj, i)) continue; target[i] = obj[i]; } return target; }
-
-var _require = require('../utils/razorpay-utils'),
-    normalizeDate = _require.normalizeDate,
-    normalizeBoolean = _require.normalizeBoolean,
-    normalizeNotes = _require.normalizeNotes;
+const { normalizeDate, normalizeBoolean, normalizeNotes } = require('../utils/razorpay-utils');
 
 module.exports = function (api) {
   return {
-    all: function all() {
-      var params = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      var callback = arguments[1];
-      var from = params.from,
-          to = params.to,
-          count = params.count,
-          skip = params.skip,
-          authorized = params.authorized,
-          receipt = params.receipt;
+    all(params = {}, callback) {
+      if (!callback || typeof callback !== 'function') {
+        throw new Error('Callback function is required');
+      }
 
-      var expand = void 0;
+      let { from, to, count = 10, skip = 0, authorized, receipt } = params;
+      let expand;
 
       if (from) {
         from = normalizeDate(from);
@@ -31,102 +20,105 @@ module.exports = function (api) {
         to = normalizeDate(to);
       }
 
-      if (params.hasOwnProperty("expand[]")) {
-        expand = { "expand[]": params["expand[]"] };
+      if (params.hasOwnProperty("expand")) {
+        expand = { expand: params.expand };
       }
 
-      count = Number(count) || 10;
-      skip = Number(skip) || 0;
+      count = Number(count);
+      skip = Number(skip);
       authorized = normalizeBoolean(authorized);
 
-      return api.get({
+      api.get({
         url: '/orders',
         data: {
-          from: from,
-          to: to,
-          count: count,
-          skip: skip,
-          authorized: authorized,
-          receipt: receipt,
-          expand: expand
+          from,
+          to,
+          count,
+          skip,
+          authorized,
+          receipt,
+          ...expand
         }
       }, callback);
     },
-    fetch: function fetch(orderId, callback) {
+
+    fetch(orderId, callback) {
       if (!orderId) {
-        throw new Error('`order_id` is mandatory');
+        callback(new Error('`order_id` is mandatory'));
+        return;
       }
 
-      return api.get({
-        url: '/orders/' + orderId
+      api.get({
+        url: `/orders/${orderId}`
       }, callback);
     },
-    create: function create() {
-      var params = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      var callback = arguments[1];
 
-      var isNotForm = false;
+    create(params = {}, callback) {
+      if (!callback || typeof callback !== 'function') {
+        throw new Error('Callback function is required');
+      }
 
-      var amount = params.amount,
-          currency = params.currency,
-          receipt = params.receipt,
-          payment_capture = params.payment_capture,
-          notes = params.notes,
-          method = params.method,
-          otherParams = _objectWithoutProperties(params, ['amount', 'currency', 'receipt', 'payment_capture', 'notes', 'method']);
-
-      currency = currency || 'INR';
+      let { amount, currency = 'INR', receipt, payment_capture, notes, method, ...otherParams } = params;
+      let isNotForm = false;
 
       if (params.hasOwnProperty("first_payment_min_amount")) {
         isNotForm = true;
       }
 
-      var data = Object.assign(_extends({
-        amount: amount,
-        currency: currency,
-        receipt: receipt,
-        method: method,
-        payment_capture: normalizeBoolean(payment_capture)
-      }, otherParams), normalizeNotes(notes));
+      const data = {
+        amount,
+        currency,
+        receipt,
+        payment_capture: normalizeBoolean(payment_capture),
+        method,
+        ...otherParams,
+        ...normalizeNotes(notes)
+      };
 
-      return api.post({
+      api.post({
         url: '/orders',
-        data: data
+        data
       }, callback, isNotForm);
     },
-    edit: function edit(orderId) {
-      var params = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-      var callback = arguments[2];
-      var notes = params.notes;
 
-
+    edit(orderId, params = {}, callback) {
       if (!orderId) {
-        throw new Error('`order_id` is mandatory');
+        callback(new Error('`order_id` is mandatory'));
+        return;
       }
 
-      var data = Object.assign(normalizeNotes(notes));
+      const data = {
+        ...normalizeNotes(params.notes)
+      };
 
-      return api.patch({
-        url: '/orders/' + orderId,
-        data: data
+      api.patch({
+        url: `/orders/${orderId}`,
+        data
       }, callback);
     },
-    fetchPayments: function fetchPayments(orderId, callback) {
+
+    fetchPayments(orderId, callback) {
       if (!orderId) {
-        throw new Error('`order_id` is mandatory');
+        callback(new Error('`order_id` is mandatory'));
+        return;
       }
 
-      return api.get({
-        url: '/orders/' + orderId + '/payments'
+      api.get({
+        url: `/orders/${orderId}/payments`
       }, callback);
     },
-    fetchTransferOrder: function fetchTransferOrder(orderId, callback) {
+
+    fetchTransferOrder(orderId, callback) {
       if (!orderId) {
-        throw new Error('`order_id` is mandatory');
+        callback(new Error('`order_id` is mandatory'));
+        return;
       }
 
-      return api.get({
-        url: '/orders/' + orderId + '/?expand[]=transfers&status'
+      api.get({
+        url: `/orders/${orderId}`,
+        data: {
+          expand: ['transfers', 'status']
+        }
       }, callback);
     }
   };
